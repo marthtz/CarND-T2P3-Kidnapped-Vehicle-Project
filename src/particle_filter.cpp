@@ -19,6 +19,17 @@
 
 using namespace std;
 
+
+
+/**
+ * init Initializes particle filter by initializing particles to Gaussian
+ *   distribution around first position and all the weights to 1.
+ * @param x Initial x position [m] (simulated estimate from GPS)
+ * @param y Initial y position [m]
+ * @param theta Initial orientation [rad]
+ * @param std[] Array of dimension 3 [standard deviation of x [m], standard deviation of y [m]
+ *   standard deviation of yaw [rad]]
+ */
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
   // TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
   //   x, y, theta and their uncertainties from GPS) and all weights to 1. 
@@ -50,6 +61,18 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   is_initialized = true;
 }
 
+
+
+
+/**
+ * prediction Predicts the state for the next time step
+ *   using the process model.
+ * @param delta_t Time between time step t and t+1 in measurements [s]
+ * @param std_pos[] Array of dimension 3 [standard deviation of x [m], standard deviation of y [m]
+ *   standard deviation of yaw [rad]]
+ * @param velocity Velocity of car from t to t+1 [m/s]
+ * @param yaw_rate Yaw rate of car from t to t+1 [rad/s]
+ */
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
   // TODO: Add measurements to each particle and add random Gaussian noise.
   // NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
@@ -93,14 +116,34 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 }
 
+
+
+
+/**
+ * dataAssociation Finds which observations correspond to which landmarks (likely by using
+ *   a nearest-neighbors data association).
+ * @param predicted Vector of predicted landmark observations
+ * @param observations Vector of landmark observations
+ */
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
   // TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
   //   observed measurement to this particular landmark.
   // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
-  //   implement this method and use it as a helper during the updateWeights phase.
-
+  //   implement this method and use it as a helper during the updateWeights phase. }
 }
 
+
+
+
+
+/**
+ * updateWeights Updates the weights for each particle based on the likelihood of the 
+ *   observed measurements. 
+ * @param sensor_range Range [m] of sensor
+ * @param std_landmark[] Array of dimension 2 [standard deviation of range [m], standard deviation of bearing [rad]]
+ * @param observations Vector of landmark observations
+ * @param map Map class containing map landmarks
+ */
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
     std::vector<LandmarkObs> observations, Map map_landmarks) {
   // TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -113,6 +156,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   //   and the following is a good resource for the actual equation to implement (look at equation 
   //   3.33
   //   http://planning.cs.uiuc.edu/node99.html
+
+
+ 
 }
 
 void ParticleFilter::resample() {
