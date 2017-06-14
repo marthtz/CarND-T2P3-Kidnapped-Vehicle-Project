@@ -35,7 +35,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   //   x, y, theta and their uncertainties from GPS) and all weights to 1. 
   // Add random Gaussian noise to each particle.
   // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-  num_particles = 100;
+  num_particles = 1;
 
   // from L14, 4/5
   default_random_engine gen;
@@ -56,7 +56,10 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
     particles.push_back(particle);
     weights.push_back(1);
-}
+
+    cout << "x, y, theta: " << x << " " << y << " " << theta << endl;
+    cout << "particle x, y, theta: " << particle.x << " " << particle.y << " " << particle.theta << endl;
+  }
 
   is_initialized = true;
 }
@@ -112,6 +115,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
     particles[i].theta = dist_theta(gen);
+
+    cout << "x, y, theta: " << x_pred << " " << y_pred << " " << theta_pred << endl;
+    cout << "particle x, y, theta: " << particles[i].x << " " << particles[i].y << " " << particles[i].theta << endl;
   }
 
 }
@@ -130,6 +136,11 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   //   observed measurement to this particular landmark.
   // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
   //   implement this method and use it as a helper during the updateWeights phase. }
+
+
+  // predicted = map
+  // task: compute nearest neighbour for each obs (using dist) and map
+  //       corresponding ID from map to obs
 }
 
 
@@ -157,6 +168,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   //   3.33
   //   http://planning.cs.uiuc.edu/node99.html
 
+  // Steps from L14 S13
+  // step 1: transform obs to global map coordinates
+  //            obs_glob_x = particel_x + (obs_x * cos(theta) - obs_y * sin(theta))
+  //            obs_glob_y = particel_x + (obs_x * sin(theta) + obs_y * cos(theta))
+  // step 2: dataAssociation
+  // for each particel
+  //  step 4: calc each obs weight: P(x,y) = 1/(2*PI*ox*oy) * exp(-1 * ( (obs_glob_x - pred_x)^2/(2*ox^2) + (obs_glob_y - pred_y)^2/(2*oy^2)))
+  //  step 5: calc final weight by multiplying all obs weights
 
  
 }
