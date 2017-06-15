@@ -168,14 +168,95 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   //   3.33
   //   http://planning.cs.uiuc.edu/node99.html
 
-  // Steps from L14 S13
-  // step 1: transform obs to global map coordinates
-  //            obs_glob_x = particel_x + (obs_x * cos(theta) - obs_y * sin(theta))
-  //            obs_glob_y = particel_x + (obs_x * sin(theta) + obs_y * cos(theta))
-  // step 2: dataAssociation
-  // for each particel
-  //  step 4: calc each obs weight: P(x,y) = 1/(2*PI*ox*oy) * exp(-1 * ( (obs_glob_x - pred_x)^2/(2*ox^2) + (obs_glob_y - pred_y)^2/(2*oy^2)))
-  //  step 5: calc final weight by multiplying all obs weights
+  // Loop counter
+  int i, j, k;
+  double theta;
+  vector<LandmarkObs> obs_glob_vec;
+  LandmarkObs obs_glob;
+
+  int num_obs = observations.size();
+  int num_lm = map_landmarks.landmark_list.size();
+
+  cout << "Obs: " << num_obs << "landmarks: " << num_lm << endl;
+
+  double ox = std_landmark[0];
+  double oy = std_landmark[1];
+  double sin_theta;
+  double cos_theta;
+
+  // for each particle
+  for (i=0; i<num_particles; i++)
+  {
+    cout << "Particle (x,y,theta): " << particles[i].x << " " << particles[i].y << " " << particles[i].theta << endl;
+    // Steps from L14 S13
+    // step 1: transform obs to global map coordinates
+    //            obs_glob_x = particel_x + (obs_x * cos(theta) - obs_y * sin(theta))
+    //            obs_glob_y = particel_x + (obs_x * sin(theta) + obs_y * cos(theta))
+    for (j=0; j<num_obs; j++)
+    {
+      sin_theta = sin(particles[i].theta);
+      cos_theta = cos(particles[i].theta);
+      obs_glob.x = particles[i].x + (observations[j].x * cos_theta - observations[j].y * sin_theta);
+      obs_glob.y = particles[i].y + (observations[j].x * sin_theta + observations[j].y * cos_theta);
+
+      // Assign obs to landmark
+      double min_distance=999999.9;
+      double distance;
+      for (k=0; k<num_lm; k++)
+      {
+        distance = dist(obs_glob.x,
+                        obs_glob.y,
+                        map_landmarks.landmark_list[k].x_f,
+                        map_landmarks.landmark_list[k].y_f);
+        if (distance<min_distance)
+        {
+          min_distance = distance;
+          obs_glob.id = map_landmarks.landmark_list[k].id_i-1;
+        }
+      }
+
+      cout << "Obs (x,y): " << observations[j].x << " " << observations[j].y << endl;
+      cout << "Obs global (x,y): " << obs_glob.x << " " << obs_glob.y << endl;
+      cout << "Assoc. landmark (x, y, id): " << map_landmarks.landmark_list[obs_glob.id].x_f << " " << map_landmarks.landmark_list[obs_glob.id].y_f << " " << obs_glob.id+1 << endl;
+      obs_glob_vec.push_back(obs_glob);
+    }
+
+
+    // step 2: dataAssociation
+    //dataAssociation(map_landmarks.landmark_list, obs_glob_vec);
+
+
+    //  step 3: calc each obs weight: P(x,y) = 1/(2*PI*ox*oy) * exp(-1 * ( (obs_glob_x - pred_x)^2/(2*ox^2) + (obs_glob_y - pred_y)^2/(2*oy^2)))
+    int obs_id;
+    double factor1;
+    double factor2;
+    double weight;
+    double final_weight = 1;
+
+    for (j=0; j<num_obs; j++)
+    {
+      obs_id = obs_glob_vec[j].id;
+
+      factor1 = (obs_glob_vec[j].x - map_landmarks.landmark_list[obs_id].x_f);
+      factor1 = factor1 * factor1;
+      factor1 = factor1 / (2*(ox*ox));
+
+      factor2 = (obs_glob_vec[j].y - map_landmarks.landmark_list[obs_id].y_f);
+      factor2 = factor2 * factor2;
+      factor2 = factor2 / (2*(oy*oy));
+
+      weight = 1.0/(2*M_PI*ox*oy) * exp( -1 * (factor1 + factor2) );
+      cout << "Weight: " << weight << endl;
+
+      final_weight *= weight;
+    }
+    cout << "Final weight: " << final_weight << endl;
+
+    //  step 4: calc final weight by multiplying all obs weights
+    weights[i] = final_weight;
+  }
+
+
 
  
 }
