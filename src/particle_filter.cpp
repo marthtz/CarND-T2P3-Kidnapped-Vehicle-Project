@@ -39,7 +39,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   //   x, y, theta and their uncertainties from GPS) and all weights to 1. 
   // Add random Gaussian noise to each particle.
   // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-  num_particles = 100;
+  this->num_particles = 100;
 
   // from L14, 4/5
   default_random_engine gen;
@@ -50,7 +50,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
   Particle particle;
 
-  for (int i=0; i<num_particles; i++)
+  for (int i=0; i<this->num_particles; i++)
   {
     particle.id = i;
     particle.x = dist_x(gen);
@@ -58,8 +58,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     particle.theta = dist_theta(gen);
     particle.weight = 1;
 
-    particles.push_back(particle);
-    weights.push_back(1);
+    this->particles.push_back(particle);
+    this->weights.push_back(1);
 
 #if DEBUG_PRINTS
     cout << "Particle init " << i << endl;
@@ -68,7 +68,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 #endif
   }
 
-  is_initialized = true;
+  this->is_initialized = true;
 }
 
 
@@ -94,30 +94,37 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     double y_pred;
     double theta_pred;
 
-  // L12 3 and L14 6/7/8 (org from fusion)
-  for (int i=0; i<num_particles; i++)
+  // L12 3 and L14 6/7/8 (original from fusion lesson)
+  //for (int i=0; i<this->num_particles; i++)
+  for (auto& current_particle:this->particles)
   {
 #if DEBUG_PRINTS
     cout << "Particle predict " << i << endl;
     cout << "\tVelocity:"<<velocity<<";Yawrate:"<<yaw_rate<<std::endl;
-    cout << "\tparticle before x, y, theta: " << particles[i].x << " " << particles[i].y << " " << particles[i].theta << endl;
+    cout << "\tparticle before x, y, theta: " << current_particle.x << " " << current_particle.y << " " << current_particle.theta << endl;
 #endif
 
     if (yaw_rate == 0)
     {
       // xf = x0 + v * dt * cos(theta)
       // yf = y0 + v * dt * sin(theta)
-      x_pred = particles[i].x + velocity * delta_t * cos(particles[i].theta);
-      y_pred = particles[i].y + velocity * delta_t * sin(particles[i].theta);
-      theta_pred = particles[i].theta;
+      x_pred = current_particle.x + velocity * delta_t * cos(current_particle.theta);
+      y_pred = current_particle.y + velocity * delta_t * sin(current_particle.theta);
+      theta_pred = current_particle.theta;
     }
     else
     {
       // xf = x0 + v/yaw_rate * (sin(yaw + yaw_rate * dt) - sin(jaw))
       // yf = y0 + v/yaw_rate * (cos(yaw) - cos(yaw + yaw_rate * dt))
-      x_pred = particles[i].x + velocity/yaw_rate * (sin(particles[i].theta + yaw_rate * delta_t) - sin(particles[i].theta));
-      y_pred = particles[i].y + velocity/yaw_rate * (cos(particles[i].theta) - cos(particles[i].theta + yaw_rate * delta_t));
-      theta_pred = particles[i].theta + yaw_rate * delta_t;
+      x_pred = current_particle.x +
+               velocity/yaw_rate *
+               (sin(current_particle.theta + yaw_rate * delta_t) -
+                sin(current_particle.theta));
+      y_pred = current_particle.y +
+               velocity/yaw_rate * 
+               (cos(current_particle.theta) -
+                cos(current_particle.theta + yaw_rate * delta_t));
+      theta_pred = current_particle.theta + yaw_rate * delta_t;
     }
 
     // Add noise
@@ -125,13 +132,13 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     normal_distribution<double> distr_y(y_pred, std_pos[1]);
     normal_distribution<double> distr_theta(theta_pred, std_pos[2]);
 
-    particles[i].x = distr_x(gen);
-    particles[i].y = distr_y(gen);
-    particles[i].theta = distr_theta(gen);
+    current_particle.x = distr_x(gen);
+    current_particle.y = distr_y(gen);
+    current_particle.theta = distr_theta(gen);
 
 #if DEBUG_PRINTS
     cout << "\tx, y, theta: " << x_pred << " " << y_pred << " " << theta_pred << endl;
-    cout << "\tparticle after x, y, theta: " << particles[i].x << " " << particles[i].y << " " << particles[i].theta << endl;
+    cout << "\tparticle after x, y, theta: " << current_particle.x << " " << current_particle.y << " " << current_particle.theta << endl;
 #endif
   }
 
@@ -156,6 +163,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   // predicted = map
   // task: compute nearest neighbour for each obs (using dist) and map
   //       corresponding ID from map to obs
+
+  // Data association done within updateWeights()
 }
 
 
@@ -184,7 +193,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   //   http://planning.cs.uiuc.edu/node99.html
 
   // Loop counter
-  int i, j, k;
+  int i;
   double theta;
   LandmarkObs obs_glob;
 
@@ -193,6 +202,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   const double ox = std_landmark[0];
   const double oy = std_landmark[1];
   const double weight_factor = 1.0/(2.0*M_PI*ox*oy);
+  const double sensor_range_square = sensor_range * sensor_range;
   double sin_theta;
   double cos_theta;
   double weight;
@@ -201,59 +211,61 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   double distance;
   double dist_x;
   double dist_y;
-  double factor1;
-  double factor2;
-
-  double sensor_range_square = sensor_range * sensor_range;
+  double weight_factor1;
+  double weight_factor2;
 
   // for each particle
-  for (i=0; i<num_particles; i++)
+  for (i=0; i<this->num_particles; i++)
   {
     final_weight = 1;
 
 #if DEBUG_PRINTS
     cout << "Particle update " << i << endl;
-    cout << "\tParticle (x,y,theta): " << particles[i].x << " " << particles[i].y << " " << particles[i].theta << endl;
+    cout << "\tParticle (x,y,theta): " << this->particles[i].x << " " << this->particles[i].y << " " << this->particles[i].theta << endl;
 #endif
 
     // Steps from L14 S13
     // Precalculate sin and cos
-    sin_theta = sin(particles[i].theta);
-    cos_theta = cos(particles[i].theta);
+    sin_theta = sin(this->particles[i].theta);
+    cos_theta = cos(this->particles[i].theta);
 
     // Iterate over all observations
-    for (j=0; j<num_obs; j++)
+    //for (j=0; j<num_obs; j++)
+    for (const auto current_obs:observations)
     {
       // Step 1: transform obs to global map coordinates
       //   obs_glob_x = particel_x + (obs_x * cos(theta) - obs_y * sin(theta))
       //   obs_glob_y = particel_x + (obs_x * sin(theta) + obs_y * cos(theta))
       //########################################################################
-      obs_glob.x = particles[i].x + (observations[j].x * cos_theta - observations[j].y * sin_theta);
-      obs_glob.y = particles[i].y + (observations[j].x * sin_theta + observations[j].y * cos_theta);
+      obs_glob.x = this->particles[i].x + (current_obs.x * cos_theta - current_obs.y * sin_theta);
+      obs_glob.y = this->particles[i].y + (current_obs.x * sin_theta + current_obs.y * cos_theta);
 
       // Step 2: dataAssociation
       //dataAssociation(map_landmarks.landmark_list, obs_glob_vec);
       // Assign obs to landmark
       // Find landmarks in range, then find nearest neighbor
       //########################################################################
-      // Init distance compare
-      min_distance = 100000.1;
+      // Init distance for comparison for each observation
+      min_distance = 100000.1;    // using squared distances here
 
       // Iterate over all landmarks in map
-      for (k=0; k<num_lm; k++)
+      //for (k=0; k<num_lm; k++)
+      for (const auto current_lm:map_landmarks.landmark_list)
       {
         // Skip all landmarks that are out of sensor range
         // Use squared diffs so they can abe reused later for distance calc
-        dist_x = (map_landmarks.landmark_list[k].x_f - obs_glob.x) * (map_landmarks.landmark_list[k].x_f - obs_glob.x);
+        dist_x = (current_lm.x_f - obs_glob.x) * (current_lm.x_f - obs_glob.x);
         if (dist_x > sensor_range_square)
         {
+          // x distance out of sensor range so continue with next landmark
           continue;
         }
         else
         {
-          dist_y = (map_landmarks.landmark_list[k].y_f - obs_glob.y) * (map_landmarks.landmark_list[k].y_f - obs_glob.y);
+          dist_y = (current_lm.y_f - obs_glob.y) * (current_lm.y_f - obs_glob.y);
           if (dist_y > sensor_range_square)
           {
+          // y distance out of sensor range so continue with next landmark
             continue;
           }
         }
@@ -267,27 +279,30 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         if (distance < min_distance)
         {
           min_distance = distance;
-          obs_glob.id = map_landmarks.landmark_list[k].id_i-1;
+          obs_glob.id = current_lm.id_i-1;
         }
       }
 
 #if DEBUG_PRINTS
-      cout << "\tGlob obs " << j << endl;
-      cout << "\t\tObs (x,y): " << observations[j].x << " " << observations[j].y << endl;
+      cout << "\tGlob obs" << endl;
+      cout << "\t\tObs (x,y): " << current_obs.x << " " << current_obs.y << endl;
       cout << "\t\tObs global (x,y): " << obs_glob.x << " " << obs_glob.y << endl;
       cout << "\t\tAssoc. landmark (x, y, id): " << map_landmarks.landmark_list[obs_glob.id].x_f << " " << map_landmarks.landmark_list[obs_glob.id].y_f << " " << obs_glob.id+1 << endl;
 #endif
 
-      // Step 3: calc each obs weight:
+      // Step 3: calc each obs weight:`
       // P(x,y) = 1/(2*PI*ox*oy) * exp(-1 * ( (obs_glob_x - pred_x)^2/(2*ox^2) + (obs_glob_y - pred_y)^2/(2*oy^2)))
       //########################################################################
-      factor1 = (obs_glob.x - map_landmarks.landmark_list[obs_glob.id].x_f);
-      factor1 = (factor1 * factor1) / (2.0*(ox*ox));
+      weight_factor1 = (obs_glob.x - map_landmarks.landmark_list[obs_glob.id].x_f);
+      weight_factor1 = (weight_factor1 * weight_factor1) / (2.0*(ox*ox));
 
-      factor2 = (obs_glob.y - map_landmarks.landmark_list[obs_glob.id].y_f);
-      factor2 = (factor2 * factor2) / (2*(oy*oy));
+      weight_factor2 = (obs_glob.y - map_landmarks.landmark_list[obs_glob.id].y_f);
+      weight_factor2 = (weight_factor2 * weight_factor2) / (2*(oy*oy));
 
-      weight = weight_factor * exp(-(factor1 + factor2));
+      weight = weight_factor * exp(-(weight_factor1 + weight_factor2));
+
+      // Step 4: calc final weight by multiplying all obs weights
+      //##########################################################################
       final_weight *= weight;
 
 #if DEBUG_PRINTS
@@ -299,10 +314,10 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     cout << "\tFinal weight: " << final_weight << endl;
 #endif
 
-    // Step 4: calc final weight by multiplying all obs weights
+    // Step 5: set global particles weight and weights
     //##########################################################################
-    particles[i].weight = final_weight;
-    weights[i] = particles[i].weight;
+    this->particles[i].weight = final_weight;
+    this->weights[i] = this->particles[i].weight;
   }
 }
 
@@ -315,17 +330,15 @@ void ParticleFilter::resample() {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::discrete_distribution<> d(weights.begin(), weights.end());
+  std::discrete_distribution<> d(this->weights.begin(), this->weights.end());
   std::map<int, int> m;
-  for(i=0; i<num_particles; i++)
+  for(i=0; i<this->num_particles; i++)
   {
-    particles_new.push_back(particles[d(gen)]);
+    particles_new.push_back(this->particles[d(gen)]);
   }
 
-  for(i=0; i<num_particles; i++)
-  {
-    particles[i] = particles_new[i];
-  }
+  // Copy resampled particles tp original particles
+  this->particles = particles_new;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
